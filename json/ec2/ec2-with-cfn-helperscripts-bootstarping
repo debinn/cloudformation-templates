@@ -1,0 +1,202 @@
+{
+   "AWSTemplateFormatVersion":"2010-09-09",
+   "Metadata":{
+      "AWS::CloudFormation::Designer":{
+         "88ab3e35-791b-4486-a0eb-8f6139123761":{
+            "size":{
+               "width":60,
+               "height":60
+            },
+            "position":{
+               "x":380,
+               "y":90
+            },
+            "z":0,
+            "embeds":[
+
+            ]
+         },
+         "3c47e4a5-b78f-4d82-9167-73bef8d01909":{
+            "size":{
+               "width":60,
+               "height":60
+            },
+            "position":{
+               "x":216.99999999999997,
+               "y":94
+            },
+            "z":0,
+            "embeds":[
+
+            ]
+         }
+      }
+   },
+   "Parameters":{
+      "KeyName":{
+         "Description":"Select the KeyPair to enable SSH",
+         "Type":"AWS::EC2::KeyPair::KeyName"
+      },
+      "InstanceType":{
+         "Description":"WebServer EC2 instance type",
+         "Default":"t2.micro",
+         "Type":"String"
+      },
+     "VPC":{
+       "Description":"Choose VPC in webserver need to be created",
+       "Type":"AWS::EC2::VPC::Id"
+     }
+   },
+   "Resources":{
+      "WebServer":{
+         "Type":"AWS::EC2::Instance",
+         "Metadata":{
+            "AWS::CloudFormation::Designer":{
+               "id":"88ab3e35-791b-4486-a0eb-8f6139123761"
+            },
+            "AWS::CloudFormation::Init":{
+               "configSets":{
+                  "InstallAndRun":[
+                     "Install",
+                     "Configure"
+                  ]
+               },
+               "Install":{
+                  "packages":{
+                     "yum":{
+                        "httpd":[
+
+                        ]
+                     }
+                  }
+               },
+               "Configure":{
+                  "files":{
+                     "/var/www/html/index.html":{
+                        "content":{
+                           "Fn::Join":[
+                              "",
+                              [
+                                 "<html>\n",
+                                 "<body>\n",
+                                 "<h1>Website created using Cloud Formation and Helper Scripts</h1>\n",
+                                 "</bod>\n",
+                                 "</html>\n"
+                              ]
+                           ]
+                        },
+                     "mode":"00600",
+                     "owner":"apache",
+                     "group":"apache"
+                     }
+                  },
+                  "services":{
+                     "sysvinit":{
+                        "httpd":{
+                           "enabled":"true",
+                           "ensureRunning":"true"
+                        }
+                     }
+                  }
+               }
+            }
+         },
+         "Properties":{
+            "ImageId":"ami-76d6f519",
+            "InstanceType":{
+               "Ref":"InstanceType"
+            },
+            "KeyName":{
+               "Ref":"KeyName"
+            },
+            "SecurityGroups":[
+               {
+                  "Ref":"CFSecGrp"
+               }
+            ],
+            "UserData":{
+               "Fn::Base64":{
+                  "Fn::Join":[
+                     "",
+                     [
+                        "#!/bin/bash -xe\n",
+                        "yum update -y aws-cfn-bootstrap\n",
+                        "/opt/aws/bin/cfn-init -v ",
+                        " --stack ",
+                        {
+                           "Ref":"AWS::StackName"
+                        },
+                        " --resource WebServer ",
+                        " --configsets InstallAndRun ",
+                        " --region ",
+                        {
+                           "Ref":"AWS::Region"
+                        }, "\n",
+                        "/opt/aws/bin/cfn-signal -e $? ",
+                        " --stack ",
+                        {
+                           "Ref":"AWS::StackName"
+                        },
+                        " --resource WebServer ",
+                        " --region ",
+                        {
+                           "Ref":"AWS::Region"
+                        }, "\n"
+                     ]
+                  ]
+               }
+            }
+         },
+         "CreationPolicy":{
+            "ResourceSignal":{
+               "Count":1,
+               "Timeout":"PT5M"
+            }
+         }
+      },
+      "CFSecGrp":{
+         "Type":"AWS::EC2::SecurityGroup",
+         "Properties":{
+            "GroupDescription":"Cloud Formation Security Group",
+            "SecurityGroupIngress":[
+               {
+                  "IpProtocol":"tcp",
+                  "FromPort":"80",
+                  "ToPort":"80",
+                  "CidrIp":"0.0.0.0/0"
+               },
+               {
+                  "IpProtocol":"tcp",
+                  "FromPort":"22",
+                  "ToPort":"22",
+                  "CidrIp":"0.0.0.0/0"
+               }
+            ]
+         },
+         "Metadata":{
+            "AWS::CloudFormation::Designer":{
+               "id":"3c47e4a5-b78f-4d82-9167-73bef8d01909"
+            }
+         }
+      }
+   },
+   "Outputs":{
+      "WebsiteURL":{
+         "Description":"URL for newly created Webserver",
+         "Value":{
+            "Fn::Join":[
+               "",
+               [
+                  "http://",
+                  {
+                     "Fn::GetAtt":[
+                        "WebServer",
+                        "PublicDnsName"
+                     ]
+                  }
+               ]
+            ]
+         }
+      }
+   }
+}
